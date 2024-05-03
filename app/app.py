@@ -1,9 +1,10 @@
 import os
 
-import cv2
+from camera import generate_frames
 from dotenv import load_dotenv
 from flask import Flask, Response, render_template, request
 from flask_cors import CORS
+from light import fetch_light_state
 
 load_dotenv()
 
@@ -13,10 +14,6 @@ CORS(app, origins=["http://localhost:5173", "http://192.168.1.20:5173"])
 camera_streams = [
     0,
 ]
-
-
-def fetch_light_state(room, light_id):
-    return True
 
 
 @app.route("/light", methods=["POST"])
@@ -45,18 +42,6 @@ def get_light_state():
     state = fetch_light_state(room, light_id)
 
     return {"state": state}, 200
-
-
-def generate_frames(stream_link):
-    stream = cv2.VideoCapture(stream_link)
-    while True:
-        success, frame = stream.read()
-        if not success:
-            break
-        else:
-            ret, buffer = cv2.imencode(".png", frame)
-            frame = buffer.tobytes()
-            yield (b"--frame\r\n" b"Content-Type: image/png\r\n\r\n" + frame + b"\r\n")
 
 
 @app.route("/video_feed/<int:id>")
