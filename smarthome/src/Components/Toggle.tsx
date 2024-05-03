@@ -7,7 +7,7 @@ interface ToggleProp {
 }
 const Toggle: React.FC<ToggleProp> = ({ onToggle, initialState }) => {
     const [enabled, setEnabled] = useState(initialState);
-
+    console.log(initialState);
     const handleChange = (state: boolean) => {
         setEnabled(state);
         onToggle(state);

@@ -1,6 +1,7 @@
 import Toggle from "./Toggle";
 import { Card } from "flowbite-react";
 import { useEffect, useState } from "react";
+import { Spinner } from "flowbite-react";
 interface LightControllerProps {
     room: string;
     lights: string[];
@@ -26,39 +27,51 @@ const LightController: React.FC<LightControllerProps> = ({ room, lights }) => {
             });
     };
     const [lightStates, setLightStates] = useState<Record<string, boolean>>({});
+    const [isLoading, setIsLoading] = useState(true); // Add this line
 
     useEffect(() => {
-        lights.forEach((light) => {
-            console.log("fetching");
-            fetch(
+        const fetches = lights.map((light) => {
+            return fetch(
                 `http://192.168.1.20:8000/light_state?room=${room}&light_id=${light}`
             )
                 .then((response) => response.json())
-                .then((data) =>
-                    setLightStates((prevStates) => ({
-                        ...prevStates,
-                        [light]: data.state === "ON",
-                    }))
-                )
-                .catch((error) => console.error("Error:", error));
+                .then((data) => data.state);
         });
+
+        Promise.all(fetches)
+            .then((states) => {
+                const newLightStates: Record<string, boolean> = {};
+                lights.forEach((light, index) => {
+                    newLightStates[light] = states[index];
+                });
+                setLightStates(newLightStates);
+                setIsLoading(false);
+            })
+            .catch((error) => console.error("Error:", error));
     }, [room, lights]);
 
+    console.log(lightStates);
     return (
         <Card className="max-w-sm rounded-xl m-2">
-            <h1 className=" text">Điều khiển đèn phòng {room}</h1>
-            {lights.map((light: string) => (
-                <div
-                    key={light}
-                    className="flex justify-between items-center mb-4"
-                >
-                    <h2>Đèn {light}</h2>
-                    <Toggle
-                        onToggle={(state) => handleToggle(light, state)}
-                        initialState={lightStates[light]}
-                    />
-                </div>
-            ))}
+            {isLoading ? (
+                <Spinner color="purple" aria-label="Purple spinner example" />
+            ) : (
+                <>
+                    <h1 className=" text">Điều khiển đèn phòng {room}</h1>
+                    {lights.map((light: string) => (
+                        <div
+                            key={light}
+                            className="flex justify-between items-center mb-4"
+                        >
+                            <h2>Đèn {light}</h2>
+                            <Toggle
+                                onToggle={(state) => handleToggle(light, state)}
+                                initialState={lightStates[light]}
+                            />
+                        </div>
+                    ))}
+                </>
+            )}
         </Card>
     );
 };
