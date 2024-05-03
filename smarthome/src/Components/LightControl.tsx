@@ -1,6 +1,7 @@
 import Toggle from "./Toggle";
 import { Card } from "flowbite-react";
 import { useEffect, useState } from "react";
+import { backendURL } from "../Utils/getENV";
 import { Spinner } from "flowbite-react";
 interface LightControllerProps {
     room: string;
@@ -9,7 +10,7 @@ interface LightControllerProps {
 
 const LightController: React.FC<LightControllerProps> = ({ room, lights }) => {
     const handleToggle = (lightId: string, state: boolean) => {
-        fetch("http://192.168.1.20:8000/light", {
+        fetch(`${backendURL}/light`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -32,7 +33,7 @@ const LightController: React.FC<LightControllerProps> = ({ room, lights }) => {
     useEffect(() => {
         const fetches = lights.map((light) => {
             return fetch(
-                `http://192.168.1.20:8000/light_state?room=${room}&light_id=${light}`
+                `${backendURL}/light_state?room=${room}&light_id=${light}`
             )
                 .then((response) => response.json())
                 .then((data) => data.state);

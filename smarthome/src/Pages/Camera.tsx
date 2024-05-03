@@ -3,7 +3,7 @@ import { Button, ButtonGroup } from "flowbite-react";
 import VideoStream from "../Components/VideoStream";
 
 export default function Camera() {
-    const [cameraId, setCameraId] = useState(0); // Default camera ID
+    const [cameraId, setCameraId] = useState(0);
 
     const handleCameraChange = (newCameraId: React.SetStateAction<number>) => {
         setCameraId(newCameraId);

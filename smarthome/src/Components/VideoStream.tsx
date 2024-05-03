@@ -1,10 +1,10 @@
+import { backendURL } from "../Utils/getENV";
 interface VideoStreamProps {
     id: number;
 }
 
 const VideoStream: React.FC<VideoStreamProps> = ({ id }) => {
-    // Replace with your Flask server URL
-    const streamUrl = `http://192.168.1.20:8000/video_feed/${id}`;
+    const streamUrl = `${backendURL}/video_feed/${id}`;
 
     return (
         <img
