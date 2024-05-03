@@ -5,9 +5,32 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Camera from "./Pages/Camera";
 import Report from "./Pages/Report";
 import Schedule from "./Pages/Schdule";
+import { useEffect } from "react";
+import addNotification, { Notifications } from "react-push-notification";
+import { socket } from "./Utils/socket";
 export default function App() {
+    useEffect(() => {
+        const handleNotification = (data: any) => {
+            console.log("notification from app", data.message);
+            addNotification({
+                title: "Hello title",
+                subtitle: "This is a subtitle",
+                message: data.message,
+                theme: "darkblue",
+                native: false,
+            });
+        };
+
+        socket.on("notification", handleNotification);
+
+        return () => {
+            socket.off("notification", handleNotification);
+        };
+    }, []);
+
     return (
-        <div>
+        <div className="app">
+            <Notifications />
             <BrowserRouter>
                 <Header>
                     <Routes>

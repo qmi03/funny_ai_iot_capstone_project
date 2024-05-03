@@ -1,19 +1,43 @@
 import os
+import time
 
 from camera import generate_frames
 from dotenv import load_dotenv
 from flask import Flask, Response, render_template, request
 from flask_cors import CORS
+from flask_socketio import SocketIO, emit
 from light import fetch_light_state
 
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:5173", "http://192.168.1.20:5173"])
+CORS(
+    app,
+    resources={
+        r"/socket.io/*": {"origins": "*"},
+        r"/light/*": {"origins": "*"},
+        r"/light_state/*": {"origins": "*"},
+    },
+)
 
 camera_streams = [
     0,
 ]
+
+socketio = SocketIO(app, cors_allowed_origins="*")
+
+
+@socketio.on("connect")
+def test_connect():
+    emit("notification", {"message": "New notification!"})
+    for i in range(3):
+        test_message = "New notification! " + str(i)
+        emit("notification", {"message": test_message})
+
+
+@socketio.on("disconnect")
+def test_disconnect():
+    print("Client disconnected")
 
 
 @app.route("/light", methods=["POST"])
