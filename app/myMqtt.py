@@ -12,8 +12,10 @@ port = int(os.getenv('MQTT_PORT'));
 username = os.getenv('ADAFRUIT_USER');
 password = os.getenv('ADAFRUIT_KEY');
 
+print(host, port,   username,password)
 client_id = f'python-mqtt-{random.randint(0, 1000)}'
 
+topic_head = f"{username}/feeds/"
 topic = f"{username}/feeds/bbc_led"
 
 def connect_mqtt():

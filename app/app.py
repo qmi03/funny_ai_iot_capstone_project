@@ -7,6 +7,7 @@ from flask import Flask, Response, render_template, request
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 from light import fetch_light_state
+from myMqtt import *
 
 load_dotenv()
 
@@ -22,6 +23,7 @@ CORS(
 
 camera_streams = [
     0,
+    "http://192.168.1.36:8080/video"
 ]
 
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -49,12 +51,8 @@ def light_switch():
     if state not in ["ON", "OFF"]:
         return {"error": "Invalid state"}, 400
 
-    if room == "living room" and light_id == "1":
-        if state == "ON":
-            print(room, light_id, state)
-        else:
-            print(room, light_id, state)
-
+    if (room == "livingroom" or room == "bedroom" or room == "kitchen") and (light_id == "5" or light_id == "1" or light_id == "2" or light_id == "3" or light_id == "4") :
+        client.publish(topic=topic_head+"led-slash-bedroom", payload=room + " " + light_id + " " + state)
     return {"room": room, "light_id": light_id, "state": state}, 200
 
 
@@ -87,4 +85,7 @@ def index():
 
 
 if __name__ == "__main__":
+    client = connect_mqtt()
+    client.loop_start()
+    client.publish(topic=topic_head+"led-slash-bedroom", payload="livingroom" + " " + "1" + " " + "ON")
     app.run(host="0.0.0.0", port=8000)
