@@ -51,8 +51,14 @@ def light_switch():
     if state not in ["ON", "OFF"]:
         return {"error": "Invalid state"}, 400
 
-    if (room == "livingroom" or room == "bedroom" or room == "kitchen") and (light_id == "5" or light_id == "1" or light_id == "2" or light_id == "3" or light_id == "4") :
-        client.publish(topic=topic_head+"led-slash-bedroom", payload=room + " " + light_id + " " + state)
+    if light_id == "1" or light_id == "2" or light_id == "3" or light_id == "4" or light_id == "5":
+        if room == "bedroom":
+            client.publish(topic=topic_head+"led-slash-bedroom", payload=room + " " + light_id + " " + state)
+        elif room == "livingroom":
+            client.publish(topic=topic_head+"led-slash-livingroom", payload=room + " " + light_id + " " + state)
+        elif room == "kitchen":
+            client.publish(topic=topic_head+"led-slash-kitchen", payload=room + " " + light_id + " " + state)
+
     return {"room": room, "light_id": light_id, "state": state}, 200
 
 
