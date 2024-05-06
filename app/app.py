@@ -87,5 +87,5 @@ def index():
 if __name__ == "__main__":
     client = connect_mqtt()
     client.loop_start()
-    client.publish(topic=topic_head+"led-slash-bedroom", payload="livingroom" + " " + "1" + " " + "ON")
+    # client.publish(topic=topic_head+"led-slash-bedroom", payload="livingroom" + " " + "1" + " " + "ON")
     app.run(host="0.0.0.0", port=8000)
