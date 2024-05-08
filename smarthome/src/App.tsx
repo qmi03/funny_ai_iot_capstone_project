@@ -8,6 +8,7 @@ import Schedule from "./Pages/Schdule";
 import { useEffect } from "react";
 import addNotification, { Notifications } from "react-push-notification";
 import { socket } from "./Utils/socket";
+import Testing from "./Pages/testing";
 export default function App() {
     useEffect(() => {
         const handleNotification = (data: any) => {
@@ -41,6 +42,7 @@ export default function App() {
                         <Route path="/camera" element={<Camera />}></Route>
                         <Route path="/report" element={<Report />}></Route>
                         <Route path="/schedule" element={<Schedule />}></Route>
+                        <Route path="/test" element={<Testing />}></Route>
                     </Routes>
                 </Header>
             </BrowserRouter>
