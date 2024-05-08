@@ -1,4 +1,6 @@
+import asyncio
 import os
+import subprocess
 import time
 
 from camera import generate_frames
@@ -6,8 +8,10 @@ from dotenv import load_dotenv
 from flask import Flask, Response, render_template, request
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
+from inference import query
 from light import fetch_light_state
 from myMqtt import *
+from werkzeug.utils import secure_filename
 
 load_dotenv()
 
@@ -18,6 +22,7 @@ CORS(
         r"/socket.io/*": {"origins": "*"},
         r"/light/*": {"origins": "*"},
         r"/light_state/*": {"origins": "*"},
+        r"/audio/*": {"origins": "*"},
     },
 )
 
@@ -40,6 +45,28 @@ def test_connect():
 @socketio.on("disconnect")
 def test_disconnect():
     print("Client disconnected")
+
+
+@app.route("/audio", methods=["POST"])
+async def receive_audio():
+    if "file" not in request.files:
+        return "No file part in the request.", 400
+
+    file = request.files["file"]
+
+    if file.filename == "":
+        return "No selected file.", 400
+
+    if file:
+        filename = secure_filename(file.filename)
+        filepath = os.path.join("uploads", filename)
+        file.save(filepath)
+        response = await query(filepath)
+        if "error" in response:
+            print(f"Error: {response['error']}, Details: {response['details']}")
+            return response, 500
+        print(response)
+        return response, 200
 
 
 @app.route("/light", methods=["POST"])
