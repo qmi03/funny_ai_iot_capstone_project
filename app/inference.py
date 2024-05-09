@@ -1,6 +1,5 @@
 import asyncio
 
-import requests
 from aiohttp import ClientSession
 
 headers = {"Authorization": f"Bearer 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"}
