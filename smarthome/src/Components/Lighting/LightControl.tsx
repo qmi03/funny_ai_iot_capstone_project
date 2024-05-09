@@ -1,7 +1,7 @@
-import Toggle from "./Toggle";
+import Toggle from "../Toggle";
 import { Card } from "flowbite-react";
 import { useEffect, useState } from "react";
-import { backendURL } from "../Utils/getENV";
+import { backendURL } from "../../Utils/getENV";
 import { Spinner } from "flowbite-react";
 interface LightControllerProps {
     room: string;
@@ -10,7 +10,7 @@ interface LightControllerProps {
 
 const LightController: React.FC<LightControllerProps> = ({ room, lights }) => {
     const handleToggle = (lightId: string, state: boolean) => {
-        fetch(`${backendURL}/light`, {
+        fetch(`${backendURL}/light/control`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -33,7 +33,7 @@ const LightController: React.FC<LightControllerProps> = ({ room, lights }) => {
     useEffect(() => {
         const fetches = lights.map((light) => {
             return fetch(
-                `${backendURL}/light_state?room=${room}&light_id=${light}`
+                `${backendURL}/light/state?room=${room}&light_id=${light}`
             )
                 .then((response) => response.json())
                 .then((data) => data.state);
@@ -53,12 +53,12 @@ const LightController: React.FC<LightControllerProps> = ({ room, lights }) => {
 
     console.log(lightStates);
     return (
-        <Card className="max-w-sm rounded-xl m-2">
+        <Card className="flex-grow rounded-xl m-2">
             {isLoading ? (
                 <Spinner color="purple" aria-label="Purple spinner example" />
             ) : (
                 <>
-                    <h1 className=" text">Điều khiển đèn phòng {room}</h1>
+                    <h1 className="text">Điều khiển đèn phòng {room}</h1>
                     {lights.map((light: string) => (
                         <div
                             key={light}
