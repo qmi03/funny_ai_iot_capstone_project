@@ -1,14 +1,6 @@
-import LightController from "../Components/LightControl";
+import Lighting from "../Components/Lighting/Lighting";
 
 const Dashboard = () => {
-    return (
-        <>
-            <LightController
-                room={"bedroom"}
-                lights={["light1", "light2", "light3"]}
-            />
-            
-        </>
-    );
+    return <Lighting />;
 };
 export default Dashboard;
