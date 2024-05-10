@@ -1,10 +1,8 @@
-# funny_ai_iot_capstone_project
-
 # About
-This is a smarthome school project. Has some iot and ai.
+This is a smarthome school project. It has some iot and ai inference.
 # Requirements
 
-1. node
+1. node (Can use nvm to version management, I'm using nvm --lts so it's node v20.12.1 (npm v10.5.0))
 2. python
 3. docker compose
 
