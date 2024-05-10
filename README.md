@@ -10,20 +10,12 @@ This is a smarthome school project. Has some iot and ai.
 
 # Run
 ## Backend + Database
-1. `cd app`
-2. Create a virtual environment if needed, then
-```python
-pip install -r requirements.txt
-```
-3. Create the .env file from .env.example. And fill in the fields.
-4. Run backend:
-```python
-python app.py
-```
-5. Initialize the rooms in the database:
-```python
-python database/scripts/init_light.py
-```
+1. `docker compose up` or `docker-compose up` (whatever works for you)
+2. `cd app`
+3. Create a virtual environment if needed, then `pip install -r requirements.txt`
+4. Create the .env file from .env.example. And fill in the fields.
+5. Run backend: `python app.py`
+6. Initialize the rooms in the database: `python database/scripts/init_light.py`
 ## Frontend
 1. `cd smarthome`
 2. Install dependencies, use: `yarn` or `npm install`.
