@@ -14,7 +14,6 @@ from flask_socketio import SocketIO, emit
 from local_inference import query
 from myMqtt import *
 from pymongo import MongoClient
-from werkzeug.utils import secure_filename
 
 load_dotenv()
 
@@ -65,8 +64,7 @@ async def receive_audio():
         return "No selected file.", 400
 
     if file:
-        filename = secure_filename(file.filename)
-        filepath = os.path.join("uploads", filename)
+        filepath = os.path.join("uploads", file.filename)
         file.save(filepath)
         response = await query(filepath)
         if "error" in response:

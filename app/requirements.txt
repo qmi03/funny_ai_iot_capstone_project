@@ -8,4 +8,3 @@ opencv-python==4.9.0.80
 paho-mqtt==2.0.0
 pymongo==4.7.2
 python-dotenv==1.0.1
-Werkzeug==3.0.2
