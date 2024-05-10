@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from flask import Flask, Response, render_template, request
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
-from inference import query
+from local_inference import query
 from myMqtt import *
 from pymongo import MongoClient
 from werkzeug.utils import secure_filename

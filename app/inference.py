@@ -1,8 +1,8 @@
 import asyncio
-
+import os
 from aiohttp import ClientSession
 
-headers = {"Authorization": f"Bearer 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"}
+headers = {"Authorization": f"Bearer {os.environ.get("HUGGINGFACE_KEY")}"}
 API_URL = "https://api-inference.huggingface.co/models/vinai/PhoWhisper-base"
 
 
