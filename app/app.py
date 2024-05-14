@@ -4,11 +4,12 @@ import subprocess
 import time
 from datetime import datetime
 
-from camera import generate_frames
+import cv2
+from camera import generate_frames, model, threshold
 from database.scripts.light import fetch_light_state, update_light_state
 from database.scripts.sensor import insert_sensor_data
 from dotenv import load_dotenv
-from flask import Flask, Response, render_template, request
+from flask import Flask, Response, request
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 from local_inference import query
@@ -38,6 +39,60 @@ db = {
         "livingroom": ["light1", "light2", "light3", "light4", "light5"],
     },
 }
+
+
+def debounce(wait):
+    # Decorator that will postpone a function's
+    # execution until after `wait` seconds
+    # have elapsed since the last time it was invoked.
+    def decorator(fn):
+        last_invoked = {}
+
+        def debounced(stream_link, *args, **kwargs):
+            nonlocal last_invoked
+            now = time.time()
+            if (
+                stream_link not in last_invoked
+                or now - last_invoked[stream_link] >= wait
+            ):
+                last_invoked[stream_link] = now
+                return fn(stream_link, *args, **kwargs)
+
+        return debounced
+
+    return decorator
+
+
+@debounce(1.0)
+def send_notification(message):
+    socketio.emit("notification", {"message": message})
+
+
+async def only_detect_box(stream_link):
+    stream = cv2.VideoCapture(stream_link)
+    while True:
+        success, frame = stream.read()
+        if not success:
+            break
+        else:
+            b_boxes = model(frame, verbose=False)[0].boxes.data.tolist()
+            count = 0
+            for b_box in b_boxes:
+                x1, y1, x2, y2, score, class_id = b_box
+                if score > threshold:
+                    count += 1
+            if count > 1:
+                message = (
+                    f"{stream_link} currently has {count} numbers of people in the view"
+                )
+                send_notification(stream_link, message)
+        await asyncio.sleep(0)  # Yield control to the event loop
+
+
+@app.before_first_request
+def start_detection_task():
+    for stream_link in db["camera_streams"]:
+        asyncio.create_task(only_detect_box(stream_link))
 
 
 @socketio.on("connect")

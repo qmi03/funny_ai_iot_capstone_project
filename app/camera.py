@@ -1,13 +1,64 @@
 import cv2
+import numpy as np
+from matplotlib import pyplot as plt
+from ultralytics import YOLO
+
+weight_path = "ai/model.pt"
+model = YOLO(weight_path)
+threshold = 0.5
 
 
-def generate_frames(stream_link):
+def generate_frames(stream_link, show_count_and_bounding_box=True):
     stream = cv2.VideoCapture(stream_link)
     while True:
         success, frame = stream.read()
         if not success:
             break
         else:
-            ret, buffer = cv2.imencode(".png", frame)
+            if show_count_and_bounding_box:
+                bboxes = model(frame, verbose=False)[0].boxes.data.tolist()
+                count = 0
+                for bbox in bboxes:
+                    x1, y1, x2, y2, score, class_id = bbox
+                    if score > threshold:
+                        count += 1
+                        cv2.rectangle(
+                            frame,
+                            (int(x1), int(y1)),
+                            (int(x2), int(y2)),
+                            (255, 0, 255),
+                            2,
+                        )
+                    # pos = (50, 50)
+                    cv2.putText(
+                        frame,
+                        f"Number of face: {count}",
+                        (20, (frame.shape[0] - 20)),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        1,
+                        (0, 255, 0),
+                        1,
+                        cv2.LINE_AA,
+                    )
+            ret, buffer = cv2.imencode(".jpg", frame)
             frame = buffer.tobytes()
-            yield (b"--frame\r\n" b"Content-Type: image/png\r\n\r\n" + frame + b"\r\n")
+            yield (b"--frame\r\n" b"Content-Type: image/jpg\r\n\r\n" + frame + b"\r\n")
+
+
+def only_detect_box(
+    stream_link,
+):
+    stream = cv2.VideoCapture(stream_link)
+    while True:
+        success, frame = stream.read()
+        if not success:
+            break
+        else:
+            b_boxes = model(frame, verbose=False)[0].boxes.data.tolist()
+            count = 0
+            for b_box in b_boxes:
+                x1, y1, x2, y2, score, class_id = b_box
+                if score > threshold:
+                    count += 1
+            if count > 1:
+                emit()
