@@ -5,7 +5,7 @@ import os
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import List
+from typing import Dict, List, Optional
 
 import aiomqtt
 import cv2
@@ -78,6 +78,23 @@ class ConnectionManager:
         for connection in self.active_connections:
             await connection.send_text(json.dumps({"message": message}))
 
+
+class TaskManager:
+    def __init__(self):
+        self.tasks: Dict[int, asyncio.Task] = {}
+
+    def add_task(self, stream_id: int, task: asyncio.Task):
+        self.tasks[stream_id] = task
+
+    def get_task(self, stream_id: int) -> Optional[asyncio.Task]:
+        return self.tasks.get(stream_id)
+
+    def remove_task(self, stream_id: int):
+        if stream_id in self.tasks:
+            del self.tasks[stream_id]
+
+
+task_manager = TaskManager()
 
 manager = ConnectionManager()
 
@@ -178,36 +195,61 @@ async def send_notification(stream_link, message):
 
 @app.post("/detection/start")
 async def start_detection(stream_id: int, background_tasks: BackgroundTasks):
-    logger.info(f"trying to start detection from this link: {stream_id}")
     stream_link = await get_stream_link_from_db(stream_id)
-    logger.info(f"trying to start detection from this link: {stream_link}")
-    background_tasks.add_task(only_detect_box, stream_link)
+    if stream_link is None:
+        raise HTTPException(status_code=404, detail="Stream link not found")
+
+    task = asyncio.create_task(only_detect_box(stream_link))
+    task_manager.add_task(stream_id, task)
     return {"message": "Detection started"}
 
 
+@app.post("/detection/stop")
+async def stop_detection(stream_id: int):
+    logger.info(f"HEREEEE! {stream_id}")
+    task = task_manager.get_task(stream_id)
+    if task is None:
+        raise HTTPException(
+            status_code=404, detail="No detection task found for this stream_id"
+        )
+
+    task.cancel()
+    task_manager.remove_task(stream_id)
+
+    try:
+        await task
+    except asyncio.CancelledError:
+        logger.info(f"Detection task for stream_id {stream_id} has been cancelled")
+
+    return {"message": "Detection stopped"}
+
+
 async def only_detect_box(stream_link):
-    logger.info(f"trying to detect from this link: {stream_link}")
     stream = cv2.VideoCapture(stream_link)
     threshold = 0.5
-
     model = YOLO(weight_path)
-    while True:
-        success, frame = stream.read()
-        if not success:
-            break
-        else:
-            b_boxes = model(frame, verbose=False)[0].boxes.data.tolist()
-            count = 0
-            for b_box in b_boxes:
-                x1, y1, x2, y2, score, class_id = b_box
-                if score >= threshold:
-                    count += 1
-            if count >= 1:
-                message = (
-                    f"{stream_link} currently has {count} numbers of people in the view"
-                )
-                await send_notification(stream_link, message)
-        await asyncio.sleep(0.1)  # Adjust as needed to control frame rate
+    try:
+        while True:
+            success, frame = stream.read()
+            if not success:
+                break
+            else:
+                b_boxes = model(frame, verbose=False)[0].boxes.data.tolist()
+                count = 0
+                for b_box in b_boxes:
+                    x1, y1, x2, y2, score, class_id = b_box
+                    if score >= threshold:
+                        count += 1
+                if count >= 1:
+                    message = f"{stream_link} currently has {count} numbers of people in the view"
+                    await send_notification(stream_link, message)
+            await asyncio.sleep(0.1)  # Adjust as needed to control frame rate
+    except asyncio.CancelledError:
+        logger.info(f"Detection task for stream_link {stream_link} has been cancelled")
+        stream.release()
+        raise
+    finally:
+        stream.release()
 
 
 async def get_stream_link_from_db(id: int):
