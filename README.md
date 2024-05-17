@@ -14,6 +14,7 @@ This is a smarthome school project. It has some iot and ai inference.
 4. Create the .env file from .env.example. And fill in the fields.
 5. Run backend: `uvicorn app:app --host 0.0.0.0 --port 8000`
 6. Initialize the rooms in the database: `python database/scripts/init_light.py`
+7. Modify database/scripts/init_camera_links.py for the camera links you want for your app. Then run python database/scripts/init_camera_links.py
 ## Frontend
 1. `cd smarthome`
 2. Install dependencies, use: `yarn` or `npm install`.
