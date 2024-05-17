@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 
 from dotenv import load_dotenv
-from pymongo import MongoClient
+from motor.motor_asyncio import AsyncIOMotorClient
 
 load_dotenv()
 connection_string = f"mongodb://{os.environ.get('MONGO_USER')}:{os.environ.get('MONGO_PASSWORD')}@localhost:27017/"
@@ -13,13 +13,20 @@ camera_streams_data = [
     # Add more camera streams as needed
 ]
 
-if __name__ == "__main__":
-    mongo_client = MongoClient(connection_string)
+
+async def main():
+    mongo_client = AsyncIOMotorClient(connection_string)
     iot_db = mongo_client.iot_232
     camera_collection = iot_db["camera"]
 
-    if camera_collection.count_documents({}) > 0:
+    if await camera_collection.count_documents({}) > 0:
         print("Data already exists in the collection. Exiting...")
     else:
         for data in camera_streams_data:
-            camera_collection.insert_one(data)
+            await camera_collection.insert_one(data)
+
+
+if __name__ == "__main__":
+    import asyncio
+
+    asyncio.run(main())
