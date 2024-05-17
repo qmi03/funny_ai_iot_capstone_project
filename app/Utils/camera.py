@@ -3,7 +3,7 @@ import asyncio
 import cv2
 from ultralytics import YOLO
 
-weight_path = "ai/model.pt"
+weight_path = "ai/cv/model.pt"
 model = YOLO(weight_path)
 threshold = 0.5
 
