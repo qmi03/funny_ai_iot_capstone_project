@@ -1,12 +1,14 @@
-import io from "socket.io-client";
+import ReconnectingWebSocket from "reconnecting-websocket";
 
-export const socket = io(
-    `${import.meta.env.VITE_FLASK_HOST}:${import.meta.env.VITE_FLASK_PORT}`
+export const ws = new ReconnectingWebSocket(
+    `ws://${import.meta.env.VITE_FASTAPI_HOST}:${
+        import.meta.env.VITE_FASTAPI_PORT
+    }/connect`
 );
-socket.on("connect", () => {
+ws.onopen = () => {
     console.log("Connected to server");
-});
+};
 
-socket.on("disconnect", () => {
+ws.onclose = () => {
     console.log("Disconnected from server");
-});
+};

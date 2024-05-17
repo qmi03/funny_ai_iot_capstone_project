@@ -7,25 +7,37 @@ import Report from "./Pages/Report";
 import Schedule from "./Pages/Schdule";
 import { useEffect } from "react";
 import addNotification, { Notifications } from "react-push-notification";
-import { socket } from "./Utils/socket";
+//import { ws } from "./Utils/socket";
 import Testing from "./Pages/testing";
 export default function App() {
     useEffect(() => {
-        const handleNotification = (data: any) => {
-            console.log("notification from app", data.message);
+        const ws = new WebSocket("ws://localhost:8000/ws");
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
             addNotification({
-                title: "Hello title",
-                subtitle: "This is a subtitle",
+                title: "Notification",
+                subtitle: "Alert",
                 message: data.message,
                 theme: "darkblue",
                 native: false,
             });
         };
 
-        socket.on("notification", handleNotification);
+        ws.onopen = () => {
+            console.log("WebSocket connection opened");
+        };
+
+        ws.onclose = () => {
+            console.log("WebSocket connection closed");
+        };
+
+        ws.onerror = (error) => {
+            console.error("WebSocket error", error);
+        };
 
         return () => {
-            socket.off("notification", handleNotification);
+            ws.close();
         };
     }, []);
 

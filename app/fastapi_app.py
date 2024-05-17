@@ -1,22 +1,49 @@
 import asyncio
+import json
+import logging
 import os
+from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import datetime
+from typing import List
 
 import aiomqtt
+import cv2
 from camera import generate_frames
 from database.scripts import light
 from database.scripts.sensor import insert_sensor_data
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, UploadFile, status
+from fastapi import (
+    BackgroundTasks,
+    FastAPI,
+    File,
+    HTTPException,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from local_inference import query
 from motor.motor_asyncio import AsyncIOMotorClient
 from myMqtt import *
 from pydantic import BaseModel
+from ultralytics import YOLO
 
 load_dotenv()
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("app.log"),  # Log to a file
+        logging.StreamHandler(),  # Also log to the console
+    ],
+)
+
+# Get a logger instance
+logger = logging.getLogger(__name__)
 
 # Create an asyncio Queue for message passing
 message_queue = asyncio.Queue()
@@ -29,11 +56,30 @@ db = motor_client["iot_232"]
 sensor_collection = db["sensor_data"]
 light_collection = db["light"]
 camera_collection = db["camera"]
-# Replace your existing route decorators with FastAPI's equivalents
 os.makedirs("uploads", exist_ok=True)
 
+weight_path = "ai/model.pt"
 
 mqtt_client = None
+
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def send_message(self, message: str):
+        for connection in self.active_connections:
+            await connection.send_text(json.dumps({"message": message}))
+
+
+manager = ConnectionManager()
 
 
 async def listen(client):
@@ -97,6 +143,71 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
 )
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+
+def debounce(wait):
+    def decorator(fn):
+        last_invoked = defaultdict(lambda: 0)
+
+        async def debounced(stream_link, *args, **kwargs):
+            nonlocal last_invoked
+            now = time.time()
+            if now - last_invoked[stream_link] >= wait:
+                last_invoked[stream_link] = now
+                await fn(stream_link, *args, **kwargs)
+
+        return debounced
+
+    return decorator
+
+
+@debounce(1.0)
+async def send_notification(stream_link, message):
+    await manager.send_message(message)
+
+
+@app.post("/detection/start")
+async def start_detection(stream_id: int, background_tasks: BackgroundTasks):
+    logger.info(f"trying to start detection from this link: {stream_id}")
+    stream_link = await get_stream_link_from_db(stream_id)
+    logger.info(f"trying to start detection from this link: {stream_link}")
+    background_tasks.add_task(only_detect_box, stream_link)
+    return {"message": "Detection started"}
+
+
+async def only_detect_box(stream_link):
+    logger.info(f"trying to detect from this link: {stream_link}")
+    stream = cv2.VideoCapture(stream_link)
+    threshold = 0.5
+
+    model = YOLO(weight_path)
+    while True:
+        success, frame = stream.read()
+        if not success:
+            break
+        else:
+            b_boxes = model(frame, verbose=False)[0].boxes.data.tolist()
+            count = 0
+            for b_box in b_boxes:
+                x1, y1, x2, y2, score, class_id = b_box
+                if score >= threshold:
+                    count += 1
+            if count >= 1:
+                message = (
+                    f"{stream_link} currently has {count} numbers of people in the view"
+                )
+                await send_notification(stream_link, message)
+        await asyncio.sleep(0.1)  # Adjust as needed to control frame rate
 
 
 async def get_stream_link_from_db(id: int):
@@ -204,7 +315,7 @@ async def light_switch(request_body: LightControlRequest):
     light_index = await get_light_index(room, light_id)
 
     # Publish MQTT message
-    mqtt_client.publish(
+    await mqtt_client.publish(
         topic=topic_head + "led-slash-" + room,
         payload=f"{room} {light_index} {state}",
     )
