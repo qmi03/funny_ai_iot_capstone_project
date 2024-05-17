@@ -30,9 +30,8 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel
 from ultralytics import YOLO
-
-from app.Utils.camera import generate_frames
-from app.Utils.mqtt import *
+from utils.camera import generate_frames
+from utils.mqtt import *
 
 load_dotenv()
 # Configure logging
