@@ -44,22 +44,3 @@ async def generate_frames(stream_link, show_count_and_bounding_box=True):
             frame = buffer.tobytes()
             yield (b"--frame\r\n" b"Content-Type: image/jpg\r\n\r\n" + frame + b"\r\n")
         await asyncio.sleep(0)  # Allow other tasks to run
-
-
-# def only_detect_box(
-#     stream_link,
-# ):
-#     stream = cv2.VideoCapture(stream_link)
-#     while True:
-#         success, frame = stream.read()
-#         if not success:
-#             break
-#         else:
-#             b_boxes = model(frame, verbose=False)[0].boxes.data.tolist()
-#             count = 0
-#             for b_box in b_boxes:
-#                 x1, y1, x2, y2, score, class_id = b_box
-#                 if score > threshold:
-#                     count += 1
-#             if count > 1:
-#                 emit()

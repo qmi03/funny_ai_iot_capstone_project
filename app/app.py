@@ -2,6 +2,8 @@ import asyncio
 import json
 import logging
 import os
+import random
+import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -9,7 +11,7 @@ from typing import Dict, List, Optional
 
 import aiomqtt
 import cv2
-from camera import generate_frames
+from ai.asr.local_inference import query
 from database.scripts import light
 from database.scripts.sensor import insert_sensor_data
 from dotenv import load_dotenv
@@ -25,11 +27,12 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
-from local_inference import query
 from motor.motor_asyncio import AsyncIOMotorClient
-from myMqtt import *
 from pydantic import BaseModel
 from ultralytics import YOLO
+
+from app.Utils.camera import generate_frames
+from app.Utils.mqtt import *
 
 load_dotenv()
 # Configure logging
@@ -58,7 +61,7 @@ light_collection = db["light"]
 camera_collection = db["camera"]
 os.makedirs("uploads", exist_ok=True)
 
-weight_path = "ai/model.pt"
+weight_path = "ai/cv/model.pt"
 
 mqtt_client = None
 
@@ -99,6 +102,10 @@ task_manager = TaskManager()
 manager = ConnectionManager()
 
 
+def getTopicName(topic: str):
+    return topic_head + topic
+
+
 async def listen(client):
     async for message in client.messages:
 
@@ -137,10 +144,10 @@ async def lifespan(app):
     global mqtt_client
     async with aiomqtt.Client(
         identifier=f"python-mqtt-{random.randint(0, 1000)}",
-        hostname=host,
-        port=port,
-        username=username,
-        password=password,
+        hostname=mqtt_host,
+        port=mqtt_port,
+        username=mqtt_username,
+        password=mqtt_password,
     ) as c:
         mqtt_client = c
         await mqtt_client.subscribe(f"{topic_head}#")
