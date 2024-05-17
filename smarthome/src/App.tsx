@@ -7,12 +7,10 @@ import Report from "./Pages/Report";
 import Schedule from "./Pages/Schdule";
 import { useEffect } from "react";
 import addNotification, { Notifications } from "react-push-notification";
-//import { ws } from "./Utils/socket";
+import { ws } from "./Utils/socket";
 import Testing from "./Pages/testing";
 export default function App() {
     useEffect(() => {
-        const ws = new WebSocket("ws://localhost:8000/ws");
-
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
             addNotification({
@@ -37,7 +35,9 @@ export default function App() {
         };
 
         return () => {
-            ws.close();
+            if (ws.readyState === 1) {
+                ws.close();
+            }
         };
     }, []);
 

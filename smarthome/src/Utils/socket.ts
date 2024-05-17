@@ -1,14 +1,5 @@
-import ReconnectingWebSocket from "reconnecting-websocket";
-
-export const ws = new ReconnectingWebSocket(
+export const ws = new WebSocket(
     `ws://${import.meta.env.VITE_FASTAPI_HOST}:${
         import.meta.env.VITE_FASTAPI_PORT
-    }/connect`
+    }/ws`
 );
-ws.onopen = () => {
-    console.log("Connected to server");
-};
-
-ws.onclose = () => {
-    console.log("Disconnected from server");
-};
