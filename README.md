@@ -12,7 +12,7 @@ This is a smarthome school project. It has some iot and ai inference.
 2. `cd app`
 3. Create a virtual environment if needed, then `pip install -r requirements.txt`
 4. Create the .env file from .env.example. And fill in the fields.
-5. Run backend: `python app.py`
+5. Run backend: `uvicorn app:app --host 0.0.0.0 --port 8000`
 6. Initialize the rooms in the database: `python database/scripts/init_light.py`
 ## Frontend
 1. `cd smarthome`
