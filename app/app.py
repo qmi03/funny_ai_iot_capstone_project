@@ -6,7 +6,7 @@ import random
 import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
 import aiomqtt
@@ -31,6 +31,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel
 from ultralytics import YOLO
 from utils.camera import generate_frames
+from utils.convert import *
 from utils.mqtt import *
 
 load_dotenv()
@@ -116,23 +117,39 @@ async def listen(client):
             print(f"Received `{message.payload.decode()}` from `{message.topic}` topic")
         if message.topic.matches(getTopicName("sensor-temperature")):
             print(f"Received `{message.payload.decode()}` from `{message.topic}` topic")
+            data = {
+                "sensor_id": "temp1",
+                "sensor_type": "temp",
+                "value": int(message.payload.decode()),
+                "timestamp": datetime.now().isoformat(),
+            }
+            await manager.send_message(json.dumps(data))
+
             try:
                 await insert_sensor_data(
-                    sensor_id="temp1",
-                    sensor_type="temp",
-                    value=int(message.payload.decode()),
-                    timestamp=datetime.now(),
+                    sensor_id=data["sensor_id"],
+                    sensor_type=data["sensor_type"],
+                    value=data["value"],
+                    timestamp=datetime.fromisoformat(data["timestamp"]),
                 )
             except Exception as e:
                 print(f"Error inserting sensor data: {e}")
         if message.topic.matches(getTopicName("sensor-moisture")):
             print(f"Received `{message.payload.decode()}` from `{message.topic}` topic")
+            data = {
+                "sensor_id": "moist1",
+                "sensor_type": "moist",
+                "value": int(message.payload.decode()),
+                "timestamp": datetime.now().isoformat(),
+            }
+            await manager.send_message(json.dumps(data))
+
             try:
                 await insert_sensor_data(
-                    sensor_id="moist1",
-                    sensor_type="moist",
-                    value=int(message.payload.decode()),
-                    timestamp=datetime.now(),
+                    sensor_id=data["sensor_id"],
+                    sensor_type=data["sensor_type"],
+                    value=data["value"],
+                    timestamp=datetime.fromisoformat(data["timestamp"]),
                 )
             except Exception as e:
                 print(f"Error inserting sensor data: {e}")
@@ -141,25 +158,31 @@ async def listen(client):
 @asynccontextmanager
 async def lifespan(app):
     global mqtt_client
-    async with aiomqtt.Client(
-        identifier=f"python-mqtt-{random.randint(0, 1000)}",
-        hostname=mqtt_host,
-        port=mqtt_port,
-        username=mqtt_username,
-        password=mqtt_password,
-    ) as c:
-        mqtt_client = c
-        await mqtt_client.subscribe(f"{topic_head}#")
-        loop = asyncio.get_event_loop()
-        task = loop.create_task(listen(mqtt_client))
-        yield
-        # Cancel the task
-        task.cancel()
-        # Wait for the task to be cancelled
+    interval = 5  # Seconds
+    while True:
         try:
-            await task
-        except asyncio.CancelledError:
-            pass
+            async with aiomqtt.Client(
+                identifier=f"python-mqtt-{random.randint(0, 1000)}",
+                hostname=mqtt_host,
+                port=mqtt_port,
+                username=mqtt_username,
+                password=mqtt_password,
+            ) as c:
+                mqtt_client = c
+                await mqtt_client.subscribe(f"{topic_head}#")
+                loop = asyncio.get_event_loop()
+                task = loop.create_task(listen(mqtt_client))
+                yield
+                # Cancel the task
+                task.cancel()
+                # Wait for the task to be cancelled
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+        except aiomqtt.MqttError:
+            logger.info(f"Connection lost; Reconnecting in {interval} seconds ...")
+            await asyncio.sleep(interval)
 
 
 app = FastAPI(lifespan=lifespan)
@@ -174,6 +197,16 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+
+@app.websocket("/ws/sensor_data")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
@@ -382,3 +415,44 @@ async def get_light_state(room: str, light_id: str):
             status_code=status.HTTP_404_NOT_FOUND, detail="Invalid room or light ID"
         )
     return {"state": state}
+
+
+@app.get("/sensor/data/history")
+async def get_history_data(sensor_id: str, hours: int = 24):
+    try:
+        end_time = datetime.now()
+        start_time = end_time - timedelta(hours=hours)
+        cursor = sensor_collection.find(
+            {
+                "metadata.sensor_id": sensor_id,
+                "timestamp": {"$gte": start_time, "$lte": end_time},
+            }
+        )
+        sensor_data = await cursor.to_list(length=None)
+        sensor_data = convert_objectid(sensor_data)
+        sensor_data = [
+            {
+                "sensor_id": data["metadata"]["sensor_id"],
+                "sensor_type": data["metadata"]["type"],
+                "value": data["value"],
+                "timestamp": data["timestamp"],
+            }
+            for data in sensor_data
+        ]
+        print(sensor_data)
+        return sensor_data
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error fetching historical data: {str(e)}"
+        )
+
+
+@app.get("/sensor/ids")
+async def get_sensor_ids():
+    try:
+        sensor_ids = await sensor_collection.distinct("metadata.sensor_id")
+        return sensor_ids
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error fetching sensor IDs: {str(e)}"
+        )
