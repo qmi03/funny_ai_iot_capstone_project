@@ -17,7 +17,7 @@ async def insert_sensor_data(sensor_id, sensor_type, value, timestamp):
 
         await sensor_collection.insert_one(
             {
-                "metadata": {"sensorId": sensor_id, "type": sensor_type},
+                "metadata": {"sensor_id": sensor_id, "type": sensor_type},
                 "timestamp": timestamp,
                 "value": value,
             }
