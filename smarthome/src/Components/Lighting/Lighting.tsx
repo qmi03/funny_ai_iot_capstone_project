@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import LightController from "./LightControl";
 import { backendURL } from "../../Utils/getENV";
+import { Card } from "flowbite-react";
 
 type LightSysType = {
     [key: string]: string[];
