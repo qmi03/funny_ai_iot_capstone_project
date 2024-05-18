@@ -1,6 +1,13 @@
 import { useState, useRef } from "react";
 const mimeType = "audio/flac";
-import { backendURL, huggingfaceKEY } from "../Utils/getENV";
+import {
+    StopCircleIcon,
+    LockClosedIcon,
+    MicrophoneIcon,
+} from "@heroicons/react/24/outline";
+
+import { backendURL } from "../Utils/getENV";
+
 const Mic = () => {
     const [permission, setPermission] = useState(false);
     const [stream, setStream] = useState<MediaStream | null>(null);
@@ -16,6 +23,8 @@ const Mic = () => {
             method: "POST",
             body: formData,
         });
+        if (response.ok) {
+        }
 
         return response.json();
     };
@@ -79,23 +88,18 @@ const Mic = () => {
         <div className="audio-controls">
             {!permission ? (
                 <button onClick={getMicrophonePermission} type="button">
-                    Get Microphone
+                    <LockClosedIcon className="h-6 w-6" aria-hidden="true" />
                 </button>
             ) : null}
             {permission && recordingStatus === "inactive" ? (
                 <button onClick={startRecording} type="button">
-                    Start Recording
+                    <MicrophoneIcon className="h-6 w-6" aria-hidden="true" />
                 </button>
             ) : null}
             {recordingStatus === "recording" ? (
                 <button onClick={stopRecording} type="button">
-                    Stop Recording
+                    <StopCircleIcon className="h-6 w-6" aria-hidden="true" />
                 </button>
-            ) : null}
-            {audio ? (
-                <div className="audio-container">
-                    <audio src={audio} controls></audio>
-                </div>
             ) : null}
         </div>
     );
