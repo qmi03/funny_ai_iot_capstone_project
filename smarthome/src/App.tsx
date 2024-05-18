@@ -5,10 +5,12 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Camera from "./Pages/Camera";
 import Report from "./Pages/Report";
 import Schedule from "./Pages/Schdule";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import addNotification, { Notifications } from "react-push-notification";
 import { ws } from "./Utils/socket";
 import Testing from "./Pages/testing";
+import { RefreshContext } from "./RefreshContext";
+
 export default function App() {
     useEffect(() => {
         ws.onmessage = (event) => {
@@ -40,7 +42,11 @@ export default function App() {
             }
         };
     }, []);
+    const [refreshKey, setRefreshKey] = useState(0);
 
+    const refresh = () => {
+        setRefreshKey((prevKey) => prevKey + 1);
+    };
     return (
         <div className="app min-h-screen">
             <Notifications />
