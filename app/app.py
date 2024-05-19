@@ -13,7 +13,7 @@ import aiomqtt
 import cv2
 from ai.asr.local_inference import query
 from database.scripts import light
-from database.scripts.sensor import insert_sensor_data
+from database.scripts.sensor import get_latest_data, insert_sensor_data
 from dotenv import load_dotenv
 from fastapi import (
     BackgroundTasks,
@@ -33,6 +33,7 @@ from ultralytics import YOLO
 from utils.camera import generate_frames
 from utils.convert import *
 from utils.mqtt import *
+from utils.voice_commands import *
 
 load_dotenv()
 # Configure logging
@@ -59,6 +60,7 @@ db = motor_client["iot_232"]
 sensor_collection = db["sensor_data"]
 light_collection = db["light"]
 camera_collection = db["camera"]
+notification_collection = db["notification"]
 os.makedirs("uploads", exist_ok=True)
 
 weight_path = "ai/cv/model.pt"
@@ -99,7 +101,7 @@ class TaskManager:
 
 task_manager = TaskManager()
 
-manager = ConnectionManager()
+connection_manager = ConnectionManager()
 
 
 def getTopicName(topic: str):
@@ -123,7 +125,7 @@ async def listen(client):
                 "value": int(message.payload.decode()),
                 "timestamp": datetime.now().isoformat(),
             }
-            await manager.send_message(json.dumps(data))
+            await connection_manager.send_message(json.dumps(data))
 
             try:
                 await insert_sensor_data(
@@ -142,7 +144,7 @@ async def listen(client):
                 "value": int(message.payload.decode()),
                 "timestamp": datetime.now().isoformat(),
             }
-            await manager.send_message(json.dumps(data))
+            await connection_manager.send_message(json.dumps(data))
 
             try:
                 await insert_sensor_data(
@@ -193,22 +195,22 @@ app.add_middleware(
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
+    await connection_manager.connect(websocket)
     try:
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        connection_manager.disconnect(websocket)
 
 
 @app.websocket("/ws/sensor_data")
 async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
+    await connection_manager.connect(websocket)
     try:
         while True:
             data = await websocket.receive_text()
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        connection_manager.disconnect(websocket)
 
 
 def debounce(wait):
@@ -217,9 +219,11 @@ def debounce(wait):
 
         async def debounced(stream_link, *args, **kwargs):
             nonlocal last_invoked
+            key = stream_link if stream_link else fn.__name__
+
             now = time.time()
-            if now - last_invoked[stream_link] >= wait:
-                last_invoked[stream_link] = now
+            if now - last_invoked[key] >= wait:
+                last_invoked[key] = now
                 await fn(stream_link, *args, **kwargs)
 
         return debounced
@@ -229,7 +233,7 @@ def debounce(wait):
 
 @debounce(1.0)
 async def send_notification(stream_link, message):
-    await manager.send_message(message)
+    await connection_manager.send_message(message)
 
 
 @app.post("/detection/start")
@@ -314,8 +318,10 @@ async def receive_audio(file: UploadFile = File(...)):
         if "error" in response:
             error_message = response["error"]
             raise HTTPException(status_code=500, detail=error_message)
-
-        return JSONResponse(content=response, status_code=200)
+        print(response["text"])
+        command = get_command(response["text"])
+        execute_command(command)
+        return JSONResponse(content=command, status_code=200)
     except HTTPException as http_error:
         raise http_error
     except Exception as e:
@@ -323,8 +329,8 @@ async def receive_audio(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=error_message)
 
 
-@app.get("/video_feed/{id}")
-async def video_feed(id: int):
+@app.get("/video_feed/")
+async def video_feed(id: int, box: bool = False):
     stream_link = await get_stream_link_from_db(id)
     if stream_link is None:
         raise HTTPException(
@@ -332,7 +338,7 @@ async def video_feed(id: int):
         )
 
     async def frames():
-        async for frame in generate_frames(stream_link):
+        async for frame in generate_frames(stream_link,show_count_and_bounding_box=box):
             yield frame
 
     return StreamingResponse(
@@ -456,3 +462,57 @@ async def get_sensor_ids():
         raise HTTPException(
             status_code=500, detail=f"Error fetching sensor IDs: {str(e)}"
         )
+
+
+def off_bedroom():
+    return "Turning off bedroom light"
+
+
+def on_bedroom():
+    return "Turning on bedroom light"
+
+
+def off_livingroom():
+    return "Turning off livingroom light"
+
+
+def on_livingroom():
+    print("Turning on livingroom light")
+
+
+def off_kitchen():
+    return "Turning off kitchen light"
+
+
+def on_kitchen():
+    return "Turning on kitchen light"
+
+
+def latest_temp():
+    temp = get_latest_data("temp1")
+
+
+def latest_moist():
+    connection_manager.send_message()
+
+
+function_dict = {
+    "off bedroom": off_bedroom,
+    "on bedroom": on_bedroom,
+    "off livingroom": off_livingroom,
+    "on livingroom": on_livingroom,
+    "off kitchen": off_kitchen,
+    "on kitchen": on_kitchen,
+    "latest temp": latest_temp,
+    "latest moist": latest_moist,
+}
+
+
+def execute_command(command):
+    print(command)
+    function = function_dict.get(command)
+    print(function)
+    if function:
+        return function()
+    else:
+        return "Invalid command"
